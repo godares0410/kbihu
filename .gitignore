@@ -1,0 +1,61 @@
+# Configuration files (contains sensitive data)
+config/
+
+# Error logs
+error.log
+*.log
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Upload directories (user-generated content)
+public/image/users/*
+public/image/peserta/*
+!public/image/users/.gitkeep
+!public/image/peserta/.gitkeep
+
+# Vendor (if using Composer)
+vendor/
+
+# Node modules (if using npm)
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Documentation files (temporary/perbaikan)
+PERBAIKAN_*.md
+FIX_*.md
+SOLUSI_*.md
+CARA_*.md
+INSTALL.md
+CARA_JALANKAN.md
+
+# Test files
+test_*.php
+*_debug.php
+*_test.php
+

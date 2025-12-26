@@ -15,7 +15,7 @@ class Response {
     }
 
     public static function back() {
-        $referer = $_SERVER['HTTP_REFERER'] ?? '/absensi/home';
+        $referer = $_SERVER['HTTP_REFERER'] ?? url('/home');
         self::redirect($referer);
     }
 

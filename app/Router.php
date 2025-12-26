@@ -53,17 +53,8 @@ class Router {
         
         // Get base path dynamically
         $basePath = $this->getBasePath();
-        
-        // Remove base path from URI
-        // Handle cases where URI might be /kbihu.web.id/absensi/login
-        if (preg_match('#^/kbihu\.web\.id(/absensi)?(/.+)$#', $uri, $matches)) {
-            // Extract path after /kbihu.web.id/absensi or /kbihu.web.id
-            $uri = $matches[2] ?? '/';
-        } elseif ($basePath && $basePath !== '/') {
-            // Remove base path if URI starts with it
-            if (strpos($uri, $basePath) === 0) {
-                $uri = substr($uri, strlen($basePath));
-            }
+        if ($basePath && $basePath !== '/') {
+            $uri = str_replace($basePath, '', $uri);
         }
         $uri = $uri ?: '/';
 
