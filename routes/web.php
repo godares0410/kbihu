@@ -9,6 +9,11 @@ $router = new Router();
 // Middleware
 $router->middleware('auth', function() {
     if (!Auth::check()) {
+        // Check if this is an AJAX request
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+            Response::json(['success' => false, 'message' => 'Unauthorized. Please login.'], 401);
+            return false;
+        }
         Response::redirect('/absensi/login');
         return false;
     }

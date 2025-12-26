@@ -2,9 +2,17 @@
 
 class Response {
     public static function json($data, $statusCode = 200) {
+        // Clear any output buffers
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
         http_response_code($statusCode);
-        header('Content-Type: application/json');
-        echo json_encode($data);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-cache, must-revalidate');
+        header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+        
+        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
 

@@ -222,25 +222,28 @@
 </div>
 
 <!-- Modal Hapus Terpilih -->
-<div class="modal fade" id="modalBulkHapusPeserta" tabindex="-1" role="dialog">
+<div class="modal fade" id="modalBulkHapusPeserta" tabindex="-1" role="dialog" aria-labelledby="modalBulkHapusPesertaLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <form id="formBulkHapusPeserta">
             <input type="hidden" name="_token" value="<?= View::csrf() ?>">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h4 class="modal-title">Konfirmasi Hapus Terpilih</h4>
+                <div class="modal-header bg-danger text-white">
+                    <h4 class="modal-title" id="modalBulkHapusPesertaLabel">Konfirmasi Hapus Terpilih</h4>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
                 </div>
                 <div class="modal-body">
                     <p id="modalBulkHapusText"></p>
-                    <div class="checkbox">
-                        <label>
-                            <input type="checkbox" id="checkSetujuBulkHapus">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="checkSetujuBulkHapus">
+                        <label class="form-check-label" for="checkSetujuBulkHapus">
                             Saya mengerti dan ingin melanjutkan
                         </label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
                     <button type="submit" id="btnBulkHapusPeserta" class="btn btn-danger" disabled>Hapus</button>
                 </div>
             </div>

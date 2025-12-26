@@ -1,17 +1,16 @@
 RewriteEngine On
-RewriteBase /absensi/
 
 # Allow direct access to public directory files (CSS, JS, images)
 RewriteCond %{REQUEST_URI} ^/absensi/public/
-RewriteRule ^public/(.*)$ public/$1 [L]
+RewriteRule ^public/(.*)$ /absensi/public/$1 [L]
 
 # Allow direct access to existing files
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^(.*)$ - [L]
 
-# Allow direct access to existing directories  
+# Allow direct access to existing directories
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^(.*)$ - [L]
 
 # Everything else goes to index.php
-RewriteRule ^(.*)$ index.php [QSA,L]
+RewriteRule ^(.*)$ /absensi/index.php [QSA,L]

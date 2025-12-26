@@ -273,34 +273,79 @@ class PesertaController extends Controller {
     }
 
     public function bulkDelete() {
-        Request::validateCsrf();
-        
-        $ids = Request::post('ids', []);
-        
-        if (empty($ids) || !is_array($ids)) {
-            $this->json(['success' => false, 'message' => 'Tidak ada data yang dipilih']);
-            return;
+        // Clear all output buffers first
+        while (ob_get_level() > 0) {
+            ob_end_clean();
         }
+        
+        // Set JSON headers immediately
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-cache, must-revalidate');
+        
+        // Debug logging
+        error_log("bulkDelete called - POST data: " . print_r($_POST, true));
+        error_log("bulkDelete called - REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+        
+        try {
+            // Validate CSRF token
+            $token = Request::post('_token');
+            if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'CSRF token mismatch'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            
+            $ids = Request::post('ids', []);
+            
+            if (empty($ids) || !is_array($ids)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Tidak ada data yang dipilih'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
 
-        // Get peserta to delete photos
-        $pesertas = [];
-        foreach ($ids as $id) {
-            $peserta = $this->pesertaModel->find($id);
-            if ($peserta && !empty($peserta['foto'])) {
-                // Try both new location and legacy location
-                $filePath = __DIR__ . '/../../public/image/peserta/' . $peserta['foto'];
-                $filePathLegacy = __DIR__ . '/../../public/image/' . $peserta['foto'];
-                if (file_exists($filePath) && is_file($filePath)) {
-                    @unlink($filePath);
-                }
-                if (file_exists($filePathLegacy) && is_file($filePathLegacy)) {
-                    @unlink($filePathLegacy);
+            // Validate IDs are numeric
+            $ids = array_filter(array_map('intval', $ids), function($id) {
+                return $id > 0;
+            });
+            
+            if (empty($ids)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ID tidak valid'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+
+            // Get peserta to delete photos
+            foreach ($ids as $id) {
+                $peserta = $this->pesertaModel->find($id);
+                if ($peserta && !empty($peserta['foto'])) {
+                    // Try both new location and legacy location
+                    $filePath = __DIR__ . '/../../public/image/peserta/' . $peserta['foto'];
+                    $filePathLegacy = __DIR__ . '/../../public/image/' . $peserta['foto'];
+                    if (file_exists($filePath) && is_file($filePath)) {
+                        @unlink($filePath);
+                    }
+                    if (file_exists($filePathLegacy) && is_file($filePathLegacy)) {
+                        @unlink($filePathLegacy);
+                    }
                 }
             }
-        }
 
-        $this->pesertaModel->bulkDelete($ids);
-        $this->json(['success' => true, 'message' => 'Data peserta berhasil dihapus.']);
+            $result = $this->pesertaModel->bulkDelete($ids);
+            
+            if ($result) {
+                http_response_code(200);
+                echo json_encode(['success' => true, 'message' => count($ids) . ' data peserta berhasil dihapus.'], JSON_UNESCAPED_UNICODE);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Gagal menghapus data peserta.'], JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        } catch (Exception $e) {
+            error_log("Bulk delete error: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
     }
 
     public function cetakKartu() {

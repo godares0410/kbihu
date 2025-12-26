@@ -314,6 +314,11 @@ $(document).ready(function() {
             return $(this).val();
         }).get();
         
+        if (selectedIds.length === 0) {
+            Swal.fire("Peringatan", "Tidak ada data yang dipilih.", "warning");
+            return;
+        }
+        
         $("#modalBulkHapusText").text("Anda akan menghapus " + selectedIds.length + " peserta. Tindakan ini tidak dapat dibatalkan.");
         $("#checkSetujuBulkHapus").prop("checked", false);
         $("#btnBulkHapusPeserta").prop("disabled", true);
@@ -330,24 +335,54 @@ $(document).ready(function() {
             return $(this).val();
         }).get();
         
+        if (selectedIds.length === 0) {
+            Swal.fire("Peringatan", "Tidak ada data yang dipilih.", "warning");
+            return;
+        }
+        
+        // Disable button during request
+        $("#btnBulkHapusPeserta").prop("disabled", true).text("Menghapus...");
+        
         $.ajax({
-            url: "/absensi/peserta/bulk-delete",
+            url: ' . json_encode(url('/peserta/bulk-delete')) . ',
             type: "POST",
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            },
             data: {
-                _token: "' . View::csrf() . '",
+                _token: ' . json_encode(View::csrf()) . ',
                 ids: selectedIds
             },
+            dataType: "json",
             success: function(res) {
-                if (res.success) {
-                    Swal.fire("Dihapus!", res.message, "success").then(() => {
+                if (res && res.success) {
+                    $("#modalBulkHapusPeserta").modal("hide");
+                    Swal.fire("Berhasil!", res.message || "Data berhasil dihapus.", "success").then(() => {
                         location.reload();
                     });
                 } else {
-                    Swal.fire("Gagal!", "Terjadi kesalahan saat menghapus data.", "error");
+                    $("#btnBulkHapusPeserta").prop("disabled", false).text("Hapus");
+                    Swal.fire("Gagal!", res && res.message ? res.message : "Terjadi kesalahan saat menghapus data.", "error");
                 }
             },
-            error: function() {
-                Swal.fire("Gagal!", "Terjadi kesalahan pada server.", "error");
+            error: function(xhr, status, error) {
+                $("#btnBulkHapusPeserta").prop("disabled", false).text("Hapus");
+                let errorMsg = "Terjadi kesalahan pada server.";
+                console.error("AJAX Error:", {xhr: xhr, status: status, error: error, responseText: xhr.responseText});
+                
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                } else if (xhr.responseText) {
+                    try {
+                        var parsed = JSON.parse(xhr.responseText);
+                        if (parsed.message) {
+                            errorMsg = parsed.message;
+                        }
+                    } catch(e) {
+                        errorMsg = "Error: " + xhr.status + " " + error;
+                    }
+                }
+                Swal.fire("Gagal!", errorMsg, "error");
             }
         });
     });

@@ -21,11 +21,24 @@ $router = require __DIR__ . '/routes/web.php';
 try {
     $router->dispatch();
 } catch (Exception $e) {
-    http_response_code(500);
-    echo "<h1>500 Internal Server Error</h1>";
-    echo "<p><strong>Error:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
-    echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . "</p>";
-    echo "<p><strong>Line:</strong> " . $e->getLine() . "</p>";
-    echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    // Check if this is an AJAX request
+    $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+    
     error_log("Error: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
+    
+    if ($isAjax) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Internal Server Error: ' . $e->getMessage()
+        ]);
+    } else {
+        http_response_code(500);
+        echo "<h1>500 Internal Server Error</h1>";
+        echo "<p><strong>Error:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+        echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . "</p>";
+        echo "<p><strong>Line:</strong> " . $e->getLine() . "</p>";
+        echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    }
 }

@@ -97,8 +97,17 @@ class Router {
             }
         }
 
-        http_response_code(404);
-        echo "404 Not Found";
+        // Check if this is an AJAX request
+        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+        
+        if ($isAjax) {
+            http_response_code(404);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => '404 Not Found']);
+        } else {
+            http_response_code(404);
+            echo "404 Not Found";
+        }
     }
 
     private function convertToRegex($path) {
