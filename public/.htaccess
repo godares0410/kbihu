@@ -1,0 +1,4 @@
+# Allow access to all files in public directory
+<IfModule mod_rewrite.c>
+    RewriteEngine Off
+</IfModule>
