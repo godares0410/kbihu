@@ -10,11 +10,20 @@ $router = new Router();
 $router->middleware('auth', function() {
     if (!Auth::check()) {
         // Check if this is an AJAX request
-        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
-            Response::json(['success' => false, 'message' => 'Unauthorized. Please login.'], 401);
-            return false;
+        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+        
+        if ($isAjax) {
+            // Clear output buffers
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            http_response_code(401);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Unauthorized. Please login.'], JSON_UNESCAPED_UNICODE);
+            exit;
         }
-        Response::redirect('/absensi/login');
+        
+        Response::redirect(url('/login'));
         return false;
     }
     return true;

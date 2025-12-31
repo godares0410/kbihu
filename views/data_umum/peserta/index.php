@@ -343,18 +343,43 @@ $(document).ready(function() {
         // Disable button during request
         $("#btnBulkHapusPeserta").prop("disabled", true).text("Menghapus...");
         
+        var ajaxUrl = ' . json_encode(url('/peserta/bulk-delete')) . ';
+        var requestData = {
+            _token: ' . json_encode(View::csrf()) . ',
+            ids: selectedIds
+        };
+        
+        console.log("=== AJAX BULK DELETE REQUEST (JSON) ===");
+        console.log("URL:", ajaxUrl);
+        console.log("Method: POST");
+        console.log("Content-Type: application/json");
+        console.log("Data:", requestData);
+        console.log("Selected IDs:", selectedIds);
+        console.log("JSON String:", JSON.stringify(requestData));
+        console.log("========================================");
+        
         $.ajax({
-            url: ' . json_encode(url('/peserta/bulk-delete')) . ',
+            url: ajaxUrl,
             type: "POST",
+            contentType: "application/json; charset=utf-8",
             headers: {
                 "X-Requested-With": "XMLHttpRequest"
             },
-            data: {
-                _token: ' . json_encode(View::csrf()) . ',
-                ids: selectedIds
-            },
+            data: JSON.stringify(requestData),
             dataType: "json",
-            success: function(res) {
+            beforeSend: function(xhr) {
+                console.log("=== BEFORE SEND ===");
+                console.log("Request Headers:", xhr.getAllResponseHeaders ? "Available" : "N/A");
+                console.log("===================");
+            },
+            success: function(res, textStatus, xhr) {
+                console.log("=== AJAX SUCCESS ===");
+                console.log("Response:", res);
+                console.log("Status Code:", xhr.status);
+                console.log("Status Text:", textStatus);
+                console.log("Response Headers:", xhr.getAllResponseHeaders());
+                console.log("===================");
+                
                 if (res && res.success) {
                     $("#modalBulkHapusPeserta").modal("hide");
                     Swal.fire("Berhasil!", res.message || "Data berhasil dihapus.", "success").then(() => {
@@ -362,27 +387,62 @@ $(document).ready(function() {
                     });
                 } else {
                     $("#btnBulkHapusPeserta").prop("disabled", false).text("Hapus");
+                    console.error("Success callback but res.success is false:", res);
                     Swal.fire("Gagal!", res && res.message ? res.message : "Terjadi kesalahan saat menghapus data.", "error");
                 }
             },
             error: function(xhr, status, error) {
+                console.error("=== AJAX ERROR ===");
+                console.error("Status Code:", xhr.status);
+                console.error("Status Text:", status);
+                console.error("Error:", error);
+                console.error("Response Text:", xhr.responseText);
+                console.error("Response Headers:", xhr.getAllResponseHeaders());
+                console.error("Ready State:", xhr.readyState);
+                console.error("Response Type:", xhr.responseType);
+                
+                // Try to parse response
+                var responseData = null;
+                try {
+                    responseData = JSON.parse(xhr.responseText);
+                    console.error("Parsed JSON Response:", responseData);
+                } catch(e) {
+                    console.error("Response is NOT JSON. First 500 chars:", xhr.responseText.substring(0, 500));
+                    console.error("Response contains HTML:", xhr.responseText.indexOf("<!DOCTYPE") !== -1);
+                    console.error("Response contains <html>:", xhr.responseText.indexOf("<html") !== -1);
+                }
+                
+                console.error("=========================");
+                
                 $("#btnBulkHapusPeserta").prop("disabled", false).text("Hapus");
                 let errorMsg = "Terjadi kesalahan pada server.";
-                console.error("AJAX Error:", {xhr: xhr, status: status, error: error, responseText: xhr.responseText});
                 
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                     errorMsg = xhr.responseJSON.message;
+                } else if (responseData && responseData.message) {
+                    errorMsg = responseData.message;
                 } else if (xhr.responseText) {
-                    try {
-                        var parsed = JSON.parse(xhr.responseText);
-                        if (parsed.message) {
-                            errorMsg = parsed.message;
+                    // Check if response is HTML
+                    if (xhr.responseText.indexOf("<!DOCTYPE") !== -1 || xhr.responseText.indexOf("<html") !== -1) {
+                        errorMsg = "Server mengembalikan HTML bukan JSON. Status: " + xhr.status + ". Cek console untuk detail.";
+                    } else {
+                        try {
+                            var parsed = JSON.parse(xhr.responseText);
+                            if (parsed.message) {
+                                errorMsg = parsed.message;
+                            }
+                        } catch(e) {
+                            errorMsg = "Error: " + xhr.status + " " + error + ". Response bukan JSON.";
                         }
-                    } catch(e) {
-                        errorMsg = "Error: " + xhr.status + " " + error;
                     }
                 }
                 Swal.fire("Gagal!", errorMsg, "error");
+            },
+            complete: function(xhr, status) {
+                console.log("=== AJAX COMPLETE ===");
+                console.log("Final Status:", status);
+                console.log("Final Status Code:", xhr.status);
+                console.log("====================");
             }
         });
     });

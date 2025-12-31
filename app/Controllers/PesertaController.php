@@ -273,80 +273,111 @@ class PesertaController extends Controller {
     }
 
     public function bulkDelete() {
-        // Clear all output buffers first
+        // Log immediately to confirm method is called
+        error_log("=== bulkDelete() METHOD CALLED ===");
+        error_log("PHP_SELF: " . ($_SERVER['PHP_SELF'] ?? 'N/A'));
+        error_log("REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+        error_log("REQUEST_METHOD: " . ($_SERVER['REQUEST_METHOD'] ?? 'N/A'));
+        
+        // Clear any output buffers immediately
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
         
-        // Set JSON headers immediately
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-cache, must-revalidate');
+        // Ensure session is started
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         
-        // Debug logging
-        error_log("bulkDelete called - POST data: " . print_r($_POST, true));
-        error_log("bulkDelete called - REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+        // Read JSON from request body
+        $jsonInput = file_get_contents('php://input');
         
-        try {
-            // Validate CSRF token
-            $token = Request::post('_token');
-            if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'CSRF token mismatch'], JSON_UNESCAPED_UNICODE);
-                exit;
+        error_log("=== bulkDelete() CONTINUING ===");
+        error_log("JSON Input: " . $jsonInput);
+        error_log("IS_AJAX: " . (defined('IS_AJAX') && IS_AJAX ? 'YES' : 'NO'));
+        error_log("Session ID: " . session_id());
+        error_log("Session data: " . print_r($_SESSION, true));
+        
+        // Decode JSON
+        $data = json_decode($jsonInput, true);
+        
+        // Validate JSON data
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("JSON decode error: " . json_last_error_msg());
+            $this->json(['success' => false, 'message' => 'Invalid JSON data: ' . json_last_error_msg()], 400);
+            return; // Extra safety
+        }
+        
+        // Validate CSRF token
+        $token = $data['_token'] ?? null;
+        $sessionToken = $_SESSION['csrf_token'] ?? null;
+        
+        error_log("CSRF Token from JSON: " . ($token ?? 'NULL'));
+        error_log("CSRF Token from SESSION: " . ($sessionToken ?? 'NULL'));
+        error_log("Tokens match: " . ($token === $sessionToken ? 'YES' : 'NO'));
+        
+        if (!$token || !$sessionToken || $token !== $sessionToken) {
+            error_log("CSRF token mismatch! JSON: '$token', SESSION: '$sessionToken'");
+            error_log("About to call json() with CSRF error");
+            error_log("Output buffer level before json(): " . ob_get_level());
+            
+            // Clear any output buffers before calling json()
+            while (ob_get_level() > 0) {
+                ob_end_clean();
             }
             
-            $ids = Request::post('ids', []);
-            
-            if (empty($ids) || !is_array($ids)) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Tidak ada data yang dipilih'], JSON_UNESCAPED_UNICODE);
-                exit;
-            }
+            $this->json(['success' => false, 'message' => 'CSRF token mismatch'], 403);
+            return; // Extra safety (though json() should exit)
+        }
+        
+        // Get IDs from JSON
+        $ids = $data['ids'] ?? [];
+        error_log("IDs from JSON: " . print_r($ids, true));
+        
+        if (empty($ids) || !is_array($ids)) {
+            error_log("No IDs provided");
+            $this->json(['success' => false, 'message' => 'Tidak ada data yang dipilih'], 400);
+        }
 
-            // Validate IDs are numeric
-            $ids = array_filter(array_map('intval', $ids), function($id) {
-                return $id > 0;
-            });
-            
-            if (empty($ids)) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'ID tidak valid'], JSON_UNESCAPED_UNICODE);
-                exit;
-            }
+        // Validate IDs are numeric
+        $ids = array_values(array_filter(array_map('intval', $ids), function($id) {
+            return $id > 0;
+        }));
+        
+        error_log("Validated IDs: " . print_r($ids, true));
+        
+        if (empty($ids)) {
+            error_log("No valid IDs");
+            $this->json(['success' => false, 'message' => 'ID tidak valid'], 400);
+        }
 
-            // Get peserta to delete photos
-            foreach ($ids as $id) {
-                $peserta = $this->pesertaModel->find($id);
-                if ($peserta && !empty($peserta['foto'])) {
-                    // Try both new location and legacy location
-                    $filePath = __DIR__ . '/../../public/image/peserta/' . $peserta['foto'];
-                    $filePathLegacy = __DIR__ . '/../../public/image/' . $peserta['foto'];
-                    if (file_exists($filePath) && is_file($filePath)) {
-                        @unlink($filePath);
-                    }
-                    if (file_exists($filePathLegacy) && is_file($filePathLegacy)) {
-                        @unlink($filePathLegacy);
-                    }
+        // Get peserta to delete photos
+        foreach ($ids as $id) {
+            $peserta = $this->pesertaModel->find($id);
+            if ($peserta && !empty($peserta['foto'])) {
+                $filePath = __DIR__ . '/../../public/image/peserta/' . $peserta['foto'];
+                if (file_exists($filePath) && is_file($filePath)) {
+                    @unlink($filePath);
                 }
             }
+        }
 
-            $result = $this->pesertaModel->bulkDelete($ids);
-            
-            if ($result) {
-                http_response_code(200);
-                echo json_encode(['success' => true, 'message' => count($ids) . ' data peserta berhasil dihapus.'], JSON_UNESCAPED_UNICODE);
-            } else {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'message' => 'Gagal menghapus data peserta.'], JSON_UNESCAPED_UNICODE);
-            }
-            exit;
-        } catch (Exception $e) {
-            error_log("Bulk delete error: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
-            exit;
+        error_log("Calling bulkDelete on model with IDs: " . print_r($ids, true));
+        $result = $this->pesertaModel->bulkDelete($ids);
+        error_log("bulkDelete result: " . ($result ? 'SUCCESS' : 'FAILED'));
+        
+        if ($result) {
+            error_log("Returning success JSON");
+            $this->json([
+                'success' => true,
+                'message' => count($ids) . ' data peserta berhasil dihapus.'
+            ]);
+        } else {
+            error_log("Returning error JSON");
+            $this->json(['success' => false, 'message' => 'Gagal menghapus data peserta.'], 500);
         }
     }
+    
 
     public function cetakKartu() {
         $pesertas = $this->pesertaModel->all();

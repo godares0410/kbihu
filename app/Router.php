@@ -57,14 +57,40 @@ class Router {
             $uri = str_replace($basePath, '', $uri);
         }
         $uri = $uri ?: '/';
+        
+        // Debug logging for AJAX requests
+        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+        if ($isAjax) {
+            error_log("=== ROUTER DISPATCH ===");
+            error_log("Method: $method");
+            error_log("URI: $uri");
+            error_log("BasePath: $basePath");
+            error_log("REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+            error_log("Total routes: " . count($this->routes));
+        }
 
-        foreach ($this->routes as $route) {
+        foreach ($this->routes as $routeIndex => $route) {
             if ($route['method'] === $method) {
                 $pattern = $this->convertToRegex($route['path']);
+                if ($isAjax) {
+                    error_log("Checking route #$routeIndex: {$route['method']} {$route['path']} -> Pattern: $pattern");
+                }
                 if (preg_match($pattern, $uri, $matches)) {
+                    if ($isAjax) {
+                        error_log("✓ Route MATCHED: {$route['method']} {$route['path']}");
+                    }
                     array_shift($matches);
                     
                     $handler = $route['handler'];
+                    
+                    // Debug logging for matched route
+                    if ($isAjax) {
+                        error_log("✓✓✓ Route MATCHED ✓✓✓");
+                        error_log("Route Path: {$route['path']}");
+                        error_log("Controller: " . ($handler['controller'] ?? 'Closure'));
+                        error_log("Action: " . ($handler['action'] ?? 'N/A'));
+                        error_log("Matches: " . print_r($matches, true));
+                    }
                     
                     // If handler is a Closure, execute it directly
                     if ($handler instanceof Closure) {
@@ -76,8 +102,12 @@ class Router {
                     if (isset($handler['middleware'])) {
                         foreach ($handler['middleware'] as $mw) {
                             if (isset($this->middleware[$mw])) {
-                                if (!$this->middleware[$mw]()) {
-                                    return;
+                                $middlewareResult = $this->middleware[$mw]();
+                                if ($middlewareResult === false) {
+                                    if ($isAjax) {
+                                        error_log("Middleware $mw blocked the request");
+                                    }
+                                    return; // Middleware blocked the request
                                 }
                             }
                         }
@@ -86,11 +116,37 @@ class Router {
                     $controller = $handler['controller'];
                     $action = $handler['action'];
                     
+                    // Try to load controller if not already loaded
+                    if (!class_exists($controller)) {
+                        // Try Controllers folder
+                        $controllerFile = __DIR__ . '/Controllers/' . $controller . '.php';
+                        if (file_exists($controllerFile)) {
+                            require $controllerFile;
+                        }
+                    }
+                    
                     if (class_exists($controller)) {
                         $controllerInstance = new $controller();
                         if (method_exists($controllerInstance, $action)) {
+                            if ($isAjax) {
+                                error_log("Calling controller method: $controller::$action");
+                            }
+                            
+                            // Clear any output buffers before calling controller method
+                            while (ob_get_level() > 0) {
+                                ob_end_clean();
+                            }
+                            
                             call_user_func_array([$controllerInstance, $action], $matches);
                             return;
+                        } else {
+                            if ($isAjax) {
+                                error_log("Method $action does not exist in $controller");
+                            }
+                        }
+                    } else {
+                        if ($isAjax) {
+                            error_log("Controller class $controller does not exist. Tried: " . ($controllerFile ?? 'N/A'));
                         }
                     }
                 }
@@ -101,9 +157,24 @@ class Router {
         $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
         
         if ($isAjax) {
+            error_log("=== NO ROUTE MATCHED ===");
+            error_log("Method: $method, URI: $uri");
+            error_log("Available routes for $method:");
+            foreach ($this->routes as $r) {
+                if ($r['method'] === $method) {
+                    error_log("  - {$r['path']}");
+                }
+            }
+            error_log("========================");
+            
+            // Clear output buffers
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            
             http_response_code(404);
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => '404 Not Found']);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => '404 Not Found - Route tidak ditemukan']);
         } else {
             http_response_code(404);
             echo "404 Not Found";
